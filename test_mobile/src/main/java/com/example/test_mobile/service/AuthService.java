@@ -2,7 +2,6 @@ package com.example.test_mobile.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.*;
 
 @Service
 public class AuthService {

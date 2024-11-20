@@ -1,6 +1,6 @@
 package com.example.test_mobile.model;
 
-public class OAuthUserInfo {
+public class OAuthuserInfo {
     private String id;
     private String email;
     private String name;
