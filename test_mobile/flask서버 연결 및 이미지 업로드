@@ -1,0 +1,139 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Drug Recognition App',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: DrugRecognitionScreen(),
+    );
+  }
+}
+
+class DrugRecognitionScreen extends StatefulWidget {
+  @override
+  _DrugRecognitionScreenState createState() => _DrugRecognitionScreenState();
+}
+
+class _DrugRecognitionScreenState extends State<DrugRecognitionScreen> {
+  File? _image;
+  final ImagePicker _picker = ImagePicker();
+  String _responseMessage = "Select an image to start.";
+
+  // 이미지 선택 함수
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _image = File(pickedFile.path);
+        _responseMessage = "Image selected.";
+      });
+    } else {
+      setState(() {
+        _responseMessage = "No image selected.";
+      });
+    }
+  }
+
+  // Flask 서버로 이미지 업로드 함수
+  Future<void> _uploadImage() async {
+    if (_image == null) {
+      setState(() {
+        _responseMessage = "No image to upload.";
+      });
+      return;
+    }
+
+    final uri = Uri.parse('http://10.0.2.2:5000/predict'); // Flask 서버 URL (애뮬레이터 기준)
+    final request = http.MultipartRequest('POST', uri);
+
+    // 이미지 파일 추가
+    request.files.add(await http.MultipartFile.fromPath('image', _image!.path));
+
+    try {
+      final response = await request.send();
+
+      if (response.statusCode == 200) {
+        final responseBody = await response.stream.bytesToString();
+        final decodedResponse = json.decode(responseBody);
+
+        setState(() {
+          _responseMessage = _formatResponse(decodedResponse);
+        });
+      } else {
+        setState(() {
+          _responseMessage = "Error: ${response.reasonPhrase}";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _responseMessage = "Error: $e";
+      });
+    }
+  }
+
+  // JSON 응답 데이터를 문자열로 변환
+  String _formatResponse(Map<String, dynamic> response) {
+    if (response.containsKey('error')) {
+      return "Error: ${response['error']}";
+    }
+    return '''
+    Drug Number: ${response['drug_num']}
+    Name: ${response['drug_name']}
+    Formulation: ${response['formulation']}
+    Color: ${response['color']}
+    Separating Line: ${response['Separating_Line']}
+    Efficacy: ${response['efficacy']}
+    Usage Method: ${response['usage_method']}
+    Warning: ${response['warning']}
+    Precautions: ${response['precautions']}
+    Interactions: ${response['interactions']}
+    Side Effects: ${response['side_effects']}
+    Storage Method: ${response['storage_method']}
+    ''';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Drug Recognition')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _image != null
+                ? Image.file(_image!, width: 200, height: 200)
+                : Text("No image selected."),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _pickImage,
+              child: Text("Select Image"),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _uploadImage,
+              child: Text("Upload Image"),
+            ),
+            SizedBox(height: 20),
+            Text(
+              _responseMessage,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
